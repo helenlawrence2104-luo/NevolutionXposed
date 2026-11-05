@@ -1,0 +1,5 @@
+<resources>
+    <item name="chat_card_header" type="id" />
+    <item name="chat_card_removed_bottom" type="id" />
+    <item name="chat_history_scroll" type="id" />
+</resources>

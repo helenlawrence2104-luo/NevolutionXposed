@@ -1,190 +1,63 @@
-# NevolutionXposed - 微信通知栏回复增强
+# NevolutionXposed — 微信通知内回复与媒体增强
 
-> 通过 Xposed 实现 Nevolution，支持微信 8.0.76 通知栏直接回复
+基于 NevolutionXposed 的 Android Xposed 模块。本轮开发基于作者已修改的 `.fixed` 版本追加，保留通知内原生回复流程。
 
-## 📖 项目简介
+**当前发布：2.0.59-voice-notification（versionCode 61，测试版，2026-11-05）。**
 
-NevolutionXposed 是一个 Android Xposed 模块，旨在为微信等应用提供更好的通知体验。本项目基于 [NevolutionXposed](https://github.com/notxx/NevolutionXposed) 原版代码，经过 AI 辅助更新，支持最新版微信 8.0.76 的通知栏直接回复功能。
+[下载安装包](downloads/NevolutionXposed-2.0.59-voice-notification-debug.apk) · [完整更新报告与使用说明](docs/UPDATE-2.0.59.md) · [SHA-256](downloads/SHA256SUMS.txt)
 
-### 灵感来源
+## 本次累计更新
 
-- **[NevolutionXposed](https://github.com/notxx/NevolutionXposed)** — 原版 Nevolution Xposed 模块，提供微信通知增强功能
-- **[galaxywatch-wechat](https://github.com/shentam/galaxywatch-wechat)** — Galaxy Watch 微信回复实现，启发了通知栏回复的思路
-- **[女娲石Xposed](https://github.com/notxx/NevolutionXposed)** — 女娲石源码参考，提供了通知解析和消息显示的核心逻辑
+- 保持在通知里输入、发送消息，支持键盘“发送”；不弹出独立回复界面，不增加发送确认。
+- 优化下拉、悬浮与横屏通知的回复入口，处理重复回复按钮。
+- 展开通知显示“好友昵称聊天框”、双方头像和左右分开的消息；压缩底部多余留白。
+- 通知回复提交微信后，调用微信原生会话已读流程，按对应账号和会话核对消息状态。
+- 图片按精确消息身份关联，自动请求微信正常清晰中图；保留后续消息与自己的回复。
+- 自定义表情图案及动图、微信内置表情图案显示。
+- 新增语音气泡、时长与微信原生自动转文字，转写内容放在同一条语音下方。
+- 接入微信原生语音播放，提供播放／停止状态。**通知气泡的点击播放／停止尚待完整真机验收，请按测试功能使用。**
+- 限制历史、缓存、媒体解码和后台任务容量，增加账号、会话、消息身份校验及故障回退。
 
-### 核心功能
+## 已验证范围
 
-- ✅ **微信通知栏直接回复** — 支持微信 8.0.76
-- ✅ **MIUI 推送图标修复** — 小米推送通知图标替换
-- ✅ **媒体通知美化** — Android O 样式媒体通知
-- ✅ **Car Mode 绕过** — 绕过微信车载模式检查
-- ✅ **RemoteInput 注入** — 注入回复文本到微信接收器
-- ✅ **通话通知排除** — 语音/视频通话通知不被修改
-- ✅ **通话类型识别** — 自动识别并修正语音/视频通话类型
-- ✅ **消息发送者验证** — 双层验证确保消息归属正确
+本轮重点适配 **微信 8.0.79（3200）**，真机为 Redmi / HyperOS 4、Android 17 / API 37、Vector 2.2。框架、系统或微信版本不同，需自行验证兼容性。
 
-## 🚀 使用教程
+最低声明为 Android 8 / API 26；这不代表所有新增功能在全部 Android 版本均已验证。媒体交互依赖 Android 9+，部分通知尺寸接口依赖 Android 12+。内部接口适配包含精确版本限制，不能假定微信更新后仍兼容。
 
-### 环境要求
+## 安装与使用
 
-- Android 8.0+ (API 26+)
-- 已 Root 的设备
-- LSPosed / EdXposed 框架
-- 微信 8.0.76 或更高版本
+1. 下载上方 APK，核对 SHA-256 后安装。当前文件是与本轮真机测试一致的 **debug 签名测试包**。
+2. 在 Vector / LSPosed 中启用模块，作用域勾选 **微信 `com.tencent.mm`** 和 **系统 UI `com.android.systemui`**。
+3. 更新后需要重新加载这两个进程。普通用户可重启手机一次；熟悉 Root 操作的用户也可自行重启微信和 SystemUI。
+4. 让好友发送一条**新消息**，使用新生成的通知测试；重启前的旧通知不用于验证新版本。
+5. 点击通知上的“回复”，直接在通知内输入并发送；展开后可查看双方消息。
+6. 照片等待微信完成正常图片下载后显示清晰预览；通知内支持图片缩放、拖动与消息历史滚动，完整手势／横屏回归仍需补充。
+7. 自定义表情和动图在展开通知中显示，动画在不可见时停止。
+8. 收到语音后显示时长，并自动调用**微信自身**的语音转文字流程；文字返回后显示在该条语音下。转写失败时保留语音入口，不自动播放声音。
 
-### 安装步骤
+若安装提示签名不一致，不要直接卸载覆盖，以免丢失设置；先确认旧包签名。项目未公开签名私钥，也不保证与其他渠道 APK 可直接互相覆盖。
 
-1. **下载 APK**
-   ```bash
-   # 从 GitHub Releases 下载
-   # 或从源码编译
-   ./gradlew assembleDebug
-   ```
+## 构建与测试
 
-2. **安装模块**
-   ```bash
-   adb install NevolutionXposed-debug.apk
-   ```
+需要 JDK 17+、Android SDK 34、Gradle Wrapper 所需依赖；本轮使用 JDK 21。
 
-3. **配置 LSPosed**
-   - 打开 LSPosed Manager
-   - 启用 NevolutionXposed 模块
-   - 设置作用域：
-     - `com.android.systemui` — 系统UI
-     - `com.tencent.mm` — 微信
-
-4. **重启微信**
-   ```bash
-   adb shell am force-stop com.tencent.mm
-   ```
-
-5. **测试回复功能**
-   - 让好友发送微信消息
-   - 在通知栏展开通知
-   - 点击「回复」按钮
-   - 输入文字并发送
-
-### 构建环境
-
-- JDK 17+ (推荐 Microsoft OpenJDK)
-- Android SDK (API 34)
-- Gradle 8.14.5
-
-```bash
-# 设置环境变量
-export JAVA_HOME="/path/to/jdk"
-export ANDROID_HOME="/path/to/android-sdk"
-
-# 构建
-./gradlew assembleDebug
-
-# 安装
-adb install build/outputs/apk/debug/NevolutionXposed-debug.apk
+```sh
+./gradlew assembleDebug assembleDebugAndroidTest testDebugUnitTest lintDebug
+adb install -r build/outputs/apk/debug/*-debug.apk
+adb install -r build/outputs/apk/androidTest/debug/*-androidTest.apk
+adb shell am instrument -w com.oasisfeng.nevo.xposed.test/com.oasisfeng.nevo.xposed.StabilityInstrumentation
 ```
 
-## 🔧 技术实现
+本轮最终构建、JVM 单元测试、lint 通过；Android 隔离测试 **19 组、156 个断言**通过。隔离测试不等同于所有 UI、设备与真实音频场景验收。诊断代码在 `src/debug`，测试入口不发送聊天消息，接收器受特权权限限制。
 
-### 核心原理
+## 隐私与限制
 
-1. **Hook 微信通知** — 拦截 `NotificationManager.notify()` 注入回复按钮
-2. **Car Mode 绕过** — Hook `rn1.a` 类的 `f()/g()/c()` 方法
-3. **RemoteInput 注入** — Hook `RemoteInput.getResultsFromIntent()` 注入回复文本
-4. **自动回复** — 通过 `MMAutoMessageReplyReceiver` 发送消息
-5. **z2.s1 Hook** — 微信内部 RemoteInput 结果处理辅助类
-6. **通话通知排除** — 自动识别并排除语音/视频通话通知
-7. **双层消息验证** — 确保消息发送者识别准确
+- 不接入第三方语音转写 API；转写使用微信自身流程，是否联网及其数据处理取决于微信。
+- 语音只在用户点击时播放，不在收到消息时自动出声。
+- 图片、表情和语音按当前账号及对应消息处理，临时媒体缓存有容量与期限限制。
+- 本次公开包不包含聊天记录、测试截图、用户账号、设备日志、微信反编译文件或本地路径配置。
+- 已提交微信不等同于网络对端必然送达；网络失败仍由微信处理。
 
-### 关键代码
+## 致谢
 
-```java
-// Hook RemoteInput.getResultsFromIntent() 注入回复文本
-XposedHelpers.findAndHookMethod(
-    RemoteInput.class, "getResultsFromIntent", 
-    Intent.class, new XC_MethodHook() {
-    @Override
-    protected void afterHookedMethod(MethodHookParam param) {
-        if (param.getResult() == null && pendingReplyText != null) {
-            Bundle result = new Bundle();
-            result.putCharSequence("key_voice_reply_text", pendingReplyText);
-            param.setResult(result);
-        }
-    }
-});
-```
-
-### 项目结构
-
-```
-NevolutionXposed/
-├── src/main/java/
-│   ├── com/oasisfeng/nevo/
-│   │   ├── decorators/
-│   │   │   ├── wechat/          # 微信通知装饰器
-│   │   │   ├── media/           # 媒体通知装饰器
-│   │   │   └── MIUIDecorator.java
-│   │   ├── sdk/                 # Nevolution SDK
-│   │   └── xposed/              # Xposed Hook 入口
-│   └── top/trumeet/common/      # 工具类
-├── src/main/res/                 # 资源文件
-└── build.gradle                  # 构建配置
-```
-
-## 📋 版本更新
-
-### v2.0.2 (2026-07-18)
-
-- ✅ **修复混淆类名硬编码** — 添加动态搜索，兼容微信版本更新
-- ✅ **修复并发安全** — pendingReplyText 改用 ConcurrentHashMap
-- ✅ **修复状态泄漏** — sLastCallType 使用后立即清理
-- ✅ **修复通知竞态** — 直接覆盖通知，避免 cancel+re-notify 丢失
-- ✅ **优化图片扫描** — 添加缓存，避免重复遍历目录
-- ✅ **优化内存管理** — LruCache 限制大小，添加清理回调
-- ✅ **优化防循环机制** — 改用 id:text 替代 hashCode
-- ✅ **优化头像加载** — 添加 5 分钟刷新间隔
-- ✅ **修复硬编码路径** — 动态获取微信数据目录
-
-### v2.0.1 (2026-07-14)
-
-- ✅ **修复消息发送** — 通过 z2.s1 hook 确保消息真正发送到微信
-- ✅ **修复通知显示** — 用户回复正确显示在通知栏
-- ✅ **修复发送者识别** — 双层验证确保朋友消息不被误认为自己发的
-- ✅ **通话通知排除** — 语音/视频通话通知不被模块修改
-- ✅ **通话类型识别** — 自动识别并修正语音/视频通话类型
-- ✅ **通话记录显示** — 语音/视频通话记录正常显示
-- ✅ **回复显示优化** — 自己发的消息显示为"我"
-
-### v2.0.0 (2026-07-14)
-
-- ✅ **微信通知栏直接回复** — 支持微信 8.0.76
-- ✅ **MIUI 推送图标修复** — 小米推送通知图标替换
-- ✅ **媒体通知美化** — Android O 样式媒体通知
-- ✅ **Car Mode 绕过** — 绕过微信车载模式检查
-- ✅ **RemoteInput 注入** — 注入回复文本到微信接收器
-
-## 📋 已知问题
-
-| 问题 | 状态 | 说明 |
-|------|------|------|
-| 回复按钮不显示 | ✅ 已修复 | 注入 RemoteInput action |
-| 消息发送失败 | ✅ 已修复 | Hook RemoteInput 结果 + z2.s1 hook |
-| Car mode 检查失败 | ✅ 已修复 | 绕过 rn1.a 检查 |
-| Context 为 null | ✅ 已修复 | Application.onCreate hook |
-| 回复按钮显示 r/t/b.xml | ✅ 已修复 | 硬编码默认值 |
-| 通话通知被修改 | ✅ 已修复 | 排除 id 40/41 通话通知 |
-| 通话类型识别错误 | ✅ 已修复 | 从 id 41 通知获取通话类型 |
-| 朋友消息显示为"我" | ✅ 已修复 | 双层验证逻辑 |
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 📄 许可证
-
-Apache License 2.0
-
-## 🙏 致谢
-
-- [NevolutionXposed](https://github.com/notxx/NevolutionXposed) — 原版模块
-- [galaxywatch-wechat](https://github.com/shentam/galaxywatch-wechat) — 灵感来源
-- [LSPosed](https://github.com/LSPosed/LSPosed) — Xposed 框架
-- [Claude AI](https://claude.ai) （mimo-v2.5-pro）— AI 辅助开发
+基于 [notxx/NevolutionXposed](https://github.com/notxx/NevolutionXposed)；通知回复设计参考 [shentam/galaxywatch-wechat](https://github.com/shentam/galaxywatch-wechat)。历史版本说明可在 Git 历史中查看。

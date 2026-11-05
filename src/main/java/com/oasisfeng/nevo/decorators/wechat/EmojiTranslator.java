@@ -25,6 +25,7 @@ public class EmojiTranslator {
 	}
 
 	static CharSequence translate(final CharSequence text) {
+		if (text == null || text.length() == 0) return text;
 		int bracket_end = TextUtils.indexOf(text, ']');
 		if (bracket_end == -1) return text;
 		int bracket_start = TextUtils.lastIndexOf(text, '[', bracket_end - 2);	// At least 1 char between brackets

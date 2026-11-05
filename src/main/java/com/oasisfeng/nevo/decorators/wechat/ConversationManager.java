@@ -3,11 +3,12 @@ package com.oasisfeng.nevo.decorators.wechat;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
-import android.util.SparseArray;
+import android.util.LruCache;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.regex.Pattern;
 
 import androidx.annotation.IntDef;
@@ -50,10 +51,10 @@ class ConversationManager {
 		IconCompat icon;
 		private @Nullable Person.Builder sender;
 
-		int getType() { return mType; }
+		synchronized int getType() { return mType; }
 
 		/** @return previous type */
-		int setType(final int type) {
+		synchronized int setType(final int type) {
 			if (type == mType) return type;
 			final int previous_type = mType;
 			mType = type;
@@ -62,7 +63,7 @@ class ConversationManager {
 			return previous_type;
 		}
 
-		@NonNull Person.Builder sender() {
+		@NonNull synchronized Person.Builder sender() {
 			return sender != null ? sender : new Person.Builder() { @NonNull @Override public Person build() {
 				switch (mType) {
 				case TYPE_GROUP_CHAT:
@@ -87,12 +88,12 @@ class ConversationManager {
 		static boolean isRecall(int mType) { return mType == TYPE_DM_RECALL || mType == TYPE_GC_RECALL; }
 		boolean isRecall() { return isRecall(mType); }
 
-		Person getGroupParticipant(final String key, final String name) {
+		synchronized Person getGroupParticipant(final String key, final String name) {
 			if (! isGroupChat()) throw new IllegalStateException("Not group chat");
 			Person.Builder builder = null;
 			Person participant = mParticipants.get(key);
 			if (participant == null) builder = new Person.Builder().setKey(key);
-			else if (! TextUtils.equals(name, requireNonNull(participant.getUri()).substring(SCHEME_ORIGINAL_NAME.length())))	// Original name is changed
+			else if (!TextUtils.equals(name, getOriginalName(participant)))	// Original name is changed
 				builder = participant.toBuilder();
 			if (builder != null) {
 				final CharSequence n = EmojiTranslator.translate(name);
@@ -113,15 +114,20 @@ class ConversationManager {
 		Conversation(final int id) { this.id = id; }
 
 		@ConversationType private int mType;
-		private final Map<String, Person> mParticipants = new ArrayMap<>();
+		// A busy group must not retain every participant for the lifetime of WeChat.
+		private final Map<String, Person> mParticipants = new LinkedHashMap<String, Person>(32, 0.75f, true) {
+			@Override protected boolean removeEldestEntry(Map.Entry<String, Person> eldest) { return size() > 100; }
+		};
 	}
 
-	Conversation getConversation(final int id) {
+	synchronized void removeConversation(final int id) { mConversations.remove(id); }
+
+	synchronized Conversation getConversation(final int id) {
 		Conversation conversation = mConversations.get(id);
 		if (conversation == null) mConversations.put(id, conversation = new Conversation(id));
 		return conversation;
 	}
 
-	private final SparseArray<Conversation> mConversations = new SparseArray<>();
+	private final LruCache<Integer, Conversation> mConversations = new LruCache<>(50);
 	private static final String TAG = WeChatDecorator.TAG;
 }

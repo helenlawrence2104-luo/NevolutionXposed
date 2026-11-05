@@ -6,8 +6,6 @@ import android.content.Context;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.os.Build.VERSION_CODES.O;
 
-import com.oasisfeng.nevo.xposed.R;
-
 /**
  * Tweaks to the voice call on-going notification.
  *
@@ -19,7 +17,9 @@ class VoiceCall {
 		final CharSequence text_cs = n.extras.getCharSequence(Notification.EXTRA_TEXT);
 		if (text_cs == null) return;
 		final String text = text_cs.toString();
-		final String[] prefixes = context.getResources().getStringArray(R.array.text_prefix_for_voice_call);
+		// Do not resolve module resource IDs through WeChat's Resources. Android
+		// 11+ can hide the module package from the injected process.
+		final String[] prefixes = { "语音通话中", "語音通話中", "Tap to continue as voice call in progress" };
 		for (final String prefix : prefixes)
 			if (text.startsWith(prefix)) {
 				tweak(n, text);

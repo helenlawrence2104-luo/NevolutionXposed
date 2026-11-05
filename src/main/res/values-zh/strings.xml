@@ -1,65 +1,45 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-  ~ Copyright (C) 2015 The Nevolution Project
-  ~
-  ~ Licensed under the Apache License, Version 2.0 (the "License");
-  ~ you may not use this file except in compliance with the License.
-  ~ You may obtain a copy of the License at
-  ~
-  ~     http://www.apache.org/licenses/LICENSE-2.0
-  ~
-  ~ Unless required by applicable law or agreed to in writing, software
-  ~ distributed under the License is distributed on an "AS IS" BASIS,
-  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  ~ See the License for the specific language governing permissions and
-  ~ limitations under the License.
-  -->
-
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
-	<string name="app_name">女娲石Xposed</string>
-
-	<string name="decorator_enabled">启用此插件</string>
-	<string name="decorator_fix_enabled">启用此补丁</string>
-
-	<string name="decorators_misc_label">女娲石 - 通用插件集</string>
-
-	<string name="decorator_elastic_inbox_title">弹性列表</string>
-	<string name="decorator_elastic_inbox_description">将原本每条单行的列表式通知伸展为每条可显示多行文字，使行数较少的列表可显示更完整的内容。</string>
-
-	<string name="decorator_stack_title">历史堆叠</string>
-	<string name="decorator_stack_description">将同一个通知栏位被覆盖的历史消息以列表的形式堆叠展现。</string>
-
-	<string name="decorator_big_text_title">多行文本</string>
-	<string name="decorator_big_text_description">将单行文本扩展为可展开的多行文本，以展现超过一行被截断的完整内容。</string>
-
-	<string name="decorator_no_sticky_title">隐藏顽固通知</string>
-	<string name="decorator_no_sticky_description">隐藏无法被划掉的通知。（对通知执行延后操作可触发）</string>
-	<string name="no_sticky_prompt_title">是否隐藏该顽固通知？</string>
-	<string name="no_sticky_prompt_sub_text">点击隐藏</string>
-	<string name="no_sticky_toast">通知已隐藏，直到下次启动。</string>
-
-	<!-- decorator-wechat -->
-
-	<string name="decorator_wechat_title">微信通知增强</string>
-	<string name="decorator_wechat_description">符合当代 Android 的最佳通知体验：可展开的会话样式、直接回复、划除即已读等高级特性。</string>
-	<string name="decorator_wechat_miui_fix">修正MIUI开发版下微信通知增强的问题</string>
-	<string name="self_display_name">我</string>
-	<string name="action_reply">回复</string>
-	<string name="action_zoom">缩放</string>
-	<string name="action_preview_image">预览图片</string>
-
-	<string name="channel_message">新消息通知</string>
-	<string name="channel_group_message">新群组消息通知</string>
-	<string name="channel_misc">其它通知</string>
-
-	<!-- decorator-miui -->
-
-	<string name="decorator_miui_title">MIUI通知增强</string>
-	<string name="decorator_miui_description">为小米通知框架（MiPushFramework）产生小图标。</string>
-
-	<!-- decorator-media -->
-
-	<string name="decorator_media_title">媒体通知增强</string>
-	<string name="decorator_media_description">为媒体通知产生Android O样式的外观。</string>
-
+    <string name="app_name">女娲石Xposed</string>
+    <string name="decorator_enabled">启用此插件</string>
+    <string name="decorator_fix_enabled">启用此补丁</string>
+    <string name="decorators_misc_label">女娲石 - 通用插件集</string>
+    <string name="decorator_elastic_inbox_title">弹性列表</string>
+    <string name="decorator_elastic_inbox_description">将原本每条单行的列表式通知伸展为每条可显示多行文字，使行数较少的列表可显示更完整的内容。</string>
+    <string name="decorator_stack_title">历史堆叠</string>
+    <string name="decorator_stack_description">将同一个通知栏位被覆盖的历史消息以列表的形式堆叠展现。</string>
+    <string name="decorator_big_text_title">多行文本</string>
+    <string name="decorator_big_text_description">将单行文本扩展为可展开的多行文本，以展现超过一行被截断的完整内容。</string>
+    <string name="decorator_no_sticky_title">隐藏顽固通知</string>
+    <string name="decorator_no_sticky_description">隐藏无法被划掉的通知。（对通知执行延后操作可触发）</string>
+    <string name="no_sticky_prompt_title">是否隐藏该顽固通知？</string>
+    <string name="no_sticky_prompt_sub_text">点击隐藏</string>
+    <string name="no_sticky_toast">通知已隐藏，直到下次启动。</string>
+    <string name="decorator_wechat_title">微信通知增强</string>
+    <string name="decorator_wechat_description">符合当代 Android 的最佳通知体验：可展开的会话样式、直接回复、划除即已读等高级特性。</string>
+    <string name="decorator_wechat_miui_fix">修正MIUI开发版下微信通知增强的问题</string>
+    <string name="self_display_name">我</string>
+    <string name="action_reply">回复</string>
+    <string name="action_zoom">缩放</string>
+    <string name="action_preview_image">预览图片</string>
+    <string name="channel_message">新消息通知</string>
+    <string name="channel_group_message">新群组消息通知</string>
+    <string name="channel_misc">其它通知</string>
+    <string name="decorator_miui_title">MIUI通知增强</string>
+    <string name="decorator_miui_description">为小米通知框架（MiPushFramework）产生小图标。</string>
+    <string name="decorator_media_title">媒体通知增强</string>
+    <string name="decorator_media_description">为媒体通知产生Android O样式的外观。</string>
+    <string name="pref_activate_title">启用</string>
+    <string name="pref_activate_summary_wechat_not_installed">“微信”未安装</string>
+    <string name="pref_activate_summary_nevo_not_installed">“女娲石”尚未安装</string>
+    <string name="pref_activate_summary_already_activated">已启用</string>
+    <string name="pref_extension_title">扩展包</string>
+    <string name="pref_extension_summary">添加更多特性（快捷回复、划掉标记已读 等）</string>
+    <string name="pref_extension_summary_auto">需要安装“Android Auto”以支持更多特性（快捷回复、划掉标记已读 等）</string>
+    <string name="pref_extension_summary_installed">已安装</string>
+    <string name="pref_mention_action_title">添加 @提及 式快捷回复</string>
+    <string name="pref_mention_action_summary">额外的快捷回复操作，提及群聊中的最后发言者。\n注意，受接口限制，这 *不会* 像在聊天界面中的提及动作那样触发对方的提醒。</string>
+    <string name="pref_wear_title">Wear OS (实验性)</string>
+    <string name="pref_wear_summary">同步通知至 Wear OS 设备</string>
+    <string name="pref_version_title">版本</string>
 </resources>

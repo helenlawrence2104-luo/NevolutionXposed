@@ -1,13 +1,11 @@
 package com.oasisfeng.nevo.decorators.wechat;
 
 import android.app.Notification;
-import android.net.Uri;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.oasisfeng.nevo.decorators.wechat.ConversationManager.Conversation;
 
-import java.io.File;
 import java.util.List;
 
 import androidx.annotation.Nullable;
@@ -39,13 +37,14 @@ class WeChatMessage {
 	private static final String SELF = "";
 
 	static Message[] buildFromCarConversation(final Conversation conversation, final Notification.CarExtender.UnreadConversation convs, final List<Notification> archive) {
-		final String[] car_messages = convs.getMessages();
-		if (car_messages.length == 0) {
+		final String[] car_messages = convs != null ? convs.getMessages() : null;
+		if (car_messages == null || car_messages.length == 0) {
 			Message basic = buildFromBasicFields(conversation);
 			return basic != null ? new Message[] { basic } : new Message[0];
 		}
 
-		final CharSequence ticker = conversation.isRecall() ? conversation.summary : conversation.ticker;
+		final CharSequence ticker = conversation.isRecall() || conversation.ticker == null
+				? (conversation.summary != null ? conversation.summary : "") : conversation.ticker;
 		final int pos = TextUtils.indexOf(ticker, SENDER_MESSAGE_SEPARATOR);
 		CharSequence sender = null, text;
 		if (pos > 0) {
@@ -59,7 +58,8 @@ class WeChatMessage {
 		// 	android.app.Notification n = archive.get(i).getNotification();
 		// 	Log.d(TAG, n.tickerText + ", " + n.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)+ ", " + n.when);
 		// }
-		for (int i = archive.size() - 1, diff = archive.size() - car_messages.length; i >= 0 && i >= diff; i--) {
+		final int archiveSize = archive != null ? archive.size() : 0;
+		for (int i = archiveSize - 1, diff = archiveSize - car_messages.length; i >= 0 && i >= diff; i--) {
 			notifications[i - diff] =  archive.get(i);
 		}
 		int end_of_peers = -1;
@@ -77,7 +77,9 @@ class WeChatMessage {
 
 	private static Message buildFromBasicFields(final Conversation conversation) {
 		// Trim the possible trailing white spaces in ticker.
-		CharSequence ticker = conversation.isRecall() ? conversation.summary : conversation.ticker;
+		if (conversation.summary == null) return null;
+		CharSequence ticker = conversation.isRecall() || conversation.ticker == null
+				? conversation.summary : conversation.ticker;
 		int ticker_length = ticker.length();
 		int ticker_end = ticker_length;
 		while (ticker_end > 0 && ticker.charAt(ticker_end - 1) == ' ') ticker_end--;
@@ -109,7 +111,7 @@ class WeChatMessage {
 			pos = TextUtils.indexOf(content_wo_prefix, SENDER_MESSAGE_SEPARATOR);
 			if (pos > 0) {
 				sender = content_wo_prefix.subSequence(0, pos);
-				text = content_wo_prefix.subSequence(pos + 1, content_wo_prefix.length());
+				text = content_wo_prefix.subSequence(pos + SENDER_MESSAGE_SEPARATOR.length(), content_wo_prefix.length());
 			} else text = content_wo_prefix;
 		} else if (! startsWith(content_wo_prefix, sender, SENDER_MESSAGE_SEPARATOR)) {    // Ensure sender matches (in ticker and summary)
 			if (unread_count > 0)	// When unread count prefix is present, sender should also be included in summary.
@@ -119,7 +121,6 @@ class WeChatMessage {
 				return msg != null ? msg : new Message(content_wo_prefix, conversation.timestamp, new Person.Builder().setName(conversation.title != null ? conversation.title.toString() : " ").build());
 			}
 		}
-		Log.d(TAG, "text " + text);
 		Message result = toMessage(conversation, sender, text, conversation.timestamp);
 		return result != null ? result : new Message(text, conversation.timestamp, new Person.Builder().setName(conversation.title != null ? conversation.title.toString() : " ").build());
 	}
@@ -129,15 +130,7 @@ class WeChatMessage {
 	 * @return unread count, or 0 if unrecognized as unread count
 	 */
 	private static int parsePrefixAsUnreadCount(final CharSequence prefix) {
-		final int length = prefix.length();
-		if (length < 1) return 0;
-		final CharSequence count = length > 1 && ! Character.isDigit(prefix.charAt(length - 1)) ? prefix.subSequence(0, length - 1) : prefix;
-		try {
-			return Integer.parseInt(count.toString());
-		} catch (final NumberFormatException ignored) {
-			Log.d(TAG, "Failed to parse as int: " + prefix);
-			return 0;
-		}
+		return UnreadCountPrefix.parseCount(prefix);
 	}
 
 	static int guessConversationType(final Conversation conversation) {
@@ -148,7 +141,8 @@ class WeChatMessage {
 	}
 
 	static int guessConversationType(final CharSequence content, final String ticker, final CharSequence title) {
-		if (content == null) return Conversation.TYPE_UNKNOWN;
+		if (content == null || ticker == null || ticker.isEmpty() || title == null)
+			return Conversation.TYPE_UNKNOWN;
 		// Content text includes sender for group and service messages, but not for direct messages.
 		final int pos = TextUtils.indexOf(content, ticker.substring(0, Math.min(10, ticker.length())));    // Seek for the first 10 chars of ticker in content.
 		if (pos >= 0 && pos <= 6) {        // Max length (up to 999 unread): [999t]
@@ -164,12 +158,14 @@ class WeChatMessage {
 	}
 
 	private static boolean startsWith(final CharSequence text, final CharSequence needle1, @SuppressWarnings("SameParameterValue") final String needle2) {
+		if (text == null || needle1 == null) return false;
 		final int needle1_length = needle1.length(), needle2_length = needle2.length();
 		return text.length() > needle1_length + needle2_length && TextUtils.regionMatches(text, 0, needle1, 0, needle1_length)
 				&& TextUtils.regionMatches(text, needle1_length, needle2, 0, needle2_length);
 	}
 
 	private static Message buildFromCarMessage(final Conversation conversation, final String message, @Nullable Notification notification, final boolean from_self) {
+		if (message == null || message.isEmpty()) return null;
 		String text = message, sender = null;
 		CharSequence ticker = (notification != null) ? notification.tickerText : null;
 		if (ticker == null) ticker = message;
@@ -181,7 +177,6 @@ class WeChatMessage {
 			final boolean title_as_sender = TextUtils.equals(sender, conversation.title);
 			if (conversation.isGroupChat() || title_as_sender) {	// Verify the sender with title for non-group conversation
 				text = message.substring(pos + SENDER_MESSAGE_SEPARATOR.length());
-				if (conversation.isGroupChat() && title_as_sender) sender = SELF;		// WeChat incorrectly use group chat title as sender for self-sent messages.
 			} else sender = null;		// Not really the sender name, revert the parsing result.
 		}
 		// parse sender (from ticker)
@@ -190,12 +185,11 @@ class WeChatMessage {
 			sender = ticker.toString().substring(0, pos);
 			final boolean title_as_sender = TextUtils.equals(sender, conversation.title);
 			if (conversation.isGroupChat() || title_as_sender) {	// Verify the sender with title for non-group conversation
-				if (conversation.isGroupChat() && title_as_sender) sender = SELF;		// WeChat incorrectly use group chat title as sender for self-sent messages.
 			} else sender = null;		// Not really the sender name, revert the parsing result.
 		}
 
 		// 修正通话类型：微信 CarExtender 发送 [语音]，但 EXTRA_TEXT 是 [语音通话]
-		if (notification != null && "[语音]".equals(text)) {
+		if (notification != null && notification.extras != null && "[语音]".equals(text)) {
 			final CharSequence extraText = notification.extras.getCharSequence(Notification.EXTRA_TEXT);
 			if (extraText != null) {
 				final String extraTextStr = extraText.toString();
@@ -212,12 +206,10 @@ class WeChatMessage {
 			}
 		}
 
-		return toMessage(conversation, from_self ? SELF : sender, text, 0, (notification != null) ? notification.extras.getString(WeChatDecorator.EXTRA_PICTURE_PATH) : null);
+		return toMessage(conversation, from_self ? SELF : sender, text,
+				notification != null ? notification.when : conversation.timestamp);
 	}
 
-	private static Message toMessage(final Conversation conversation, final @Nullable CharSequence sender, final CharSequence text, final long time) {
-		return toMessage(conversation, sender, text, time, null);
-	}
 
 	/**
 	 * 检查是否是需要跳过的消息类型
@@ -242,32 +234,15 @@ class WeChatMessage {
 		return false;
 	}
 
-	/**
-	 * 双层验证：判断是否是自己发的消息
-	 * 第一层：检查 sender 是否为 SELF（空字符串）
-	 * 第二层：仅在群聊中，检查 sender 是否与 conversation.title 匹配
-	 *         （WeChat bug：群聊中自己发的消息会用群名作为 sender）
-	 *         注意：私聊中 sender == title 是正常的（朋友名字 = 会话标题）
-	 */
+	/** Only an explicit self marker identifies our own message.
+	 * A group member may legitimately use the same nickname as the group title. */
 	private static boolean isSelfMessage(final Conversation conversation, final @Nullable CharSequence sender) {
-		// 第一层：sender 为 SELF（空字符串）→ 自己发的
-		if (SELF.equals(sender)) {
-			Log.d(TAG, "isSelfMessage: true (SELF)");
-			return true;
-		}
-		// 第二层：仅群聊中，sender 与 conversation.title 相同 → 自己发的
-		// 私聊中 sender == title 是正常情况（朋友名字 = 会话标题），不代表是自己发的
-		if (conversation.isGroupChat() && sender != null && conversation.title != null) {
-			if (TextUtils.equals(sender, conversation.title)) {
-				Log.d(TAG, "isSelfMessage: true (group chat, sender matches title: " + sender + ")");
-				return true;
-			}
-		}
-		return false;
+		return SELF.equals(sender);
 	}
 
-	private static Message toMessage(final Conversation conversation, final @Nullable CharSequence sender, final CharSequence text, final long time, final String picturePath) {
-		// 第一层验证：跳过语音/视频通话消息
+	private static Message toMessage(final Conversation conversation, final @Nullable CharSequence sender, final CharSequence text, final long time) {
+		// Missing or malformed car messages must not abort the notification hook.
+		if (text == null || text.length() == 0) return null;
 		if (shouldSkipMessage(text)) {
 			return null;  // 返回 null，由调用方过滤
 		}
@@ -278,24 +253,15 @@ class WeChatMessage {
 		// 第二层验证：双层验证判断是否是自己发的消息
 		if (isSelfMessage(conversation, sender)) {
 			person = null;  // 自己发的消息
-			Log.d(TAG, "toMessage: self message, text=" + text);
 		} else if (conversation.isGroupChat()) {
-			person = conversation.getGroupParticipant(s, s);
-			Log.d(TAG, "toMessage: group chat, sender=" + s + " text=" + text);
+			person = s != null && !s.isEmpty() ? conversation.getGroupParticipant(s, s)
+					: new Person.Builder().setName(" ").build();
 		} else {
 			// 朋友发的消息：用 conversation.title 作为发送者名称
 			person = new Person.Builder().setName(conversation.title != null ? conversation.title.toString() : " ").build();
-			Log.d(TAG, "toMessage: friend message, sender=" + s + " title=" + conversation.title + " text=" + text);
 		}
 
-		Message r = new Message(EmojiTranslator.translate(text), time, person);
-		if (picturePath != null) {
-			if (BuildConfig.DEBUG) Log.d(TAG, "message.setData " + picturePath);
-			File file = new File(picturePath);
-			if (file.exists()) r.setData("image/jpeg", Uri.fromFile(file));
-			if (BuildConfig.DEBUG) Log.d(TAG, file.exists() + " toMessage " + r.getDataUri());
-		}
-		return r;
+		return new Message(EmojiTranslator.translate(text), time, person);
 	}
 
 }

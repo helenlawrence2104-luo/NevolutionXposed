@@ -30,9 +30,9 @@ android {
 	defaultConfig {
 		minSdk 26
 		targetSdk 34
-		versionCode 4
-		versionName "2.0.2"
-		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+		versionCode 61
+		versionName "2.0.59-voice-notification"
+		testInstrumentationRunner "com.oasisfeng.nevo.xposed.StabilityInstrumentation"
 	}
 
 	compileOptions {
@@ -77,7 +77,9 @@ android {
 }
 
 dependencies {
+	testImplementation 'junit:junit:4.13.2'
 	compileOnly 'de.robv.android.xposed:api:82'
+    androidTestImplementation 'de.robv.android.xposed:api:82'
 	compileOnly 'de.robv.android.xposed:api:82:sources'
 	implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 	implementation 'androidx.core:core:1.12.0'

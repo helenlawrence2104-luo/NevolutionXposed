@@ -2,11 +2,8 @@ package com.oasisfeng.nevo.decorators.media
 
 import android.app.Notification
 import android.app.Notification.Action
-import android.content.Context
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Color
+import android.graphics.Canvas
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.notification.StatusBarNotification
@@ -14,171 +11,111 @@ import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
 
-import java.lang.reflect.Method
-
-import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.XposedHelpers
-import de.robv.android.xposed.callbacks.XC_LoadPackage;
-
 import com.oasisfeng.nevo.sdk.Decorating
-import com.oasisfeng.nevo.sdk.Decorator
-import com.oasisfeng.nevo.sdk.HookSupport
 import com.oasisfeng.nevo.sdk.NevoDecoratorService
 import com.oasisfeng.nevo.xposed.BuildConfig
 import com.oasisfeng.nevo.xposed.R
 
-
-/**
-* Created by Deng on 2019/2/18.
-*/
+/** Optional media appearance enhancement. Unsupported notifications retain their native views. */
 class MediaDecorator : NevoDecoratorService() {
-	override fun createSystemUIDecorator() : NevoDecoratorService.SystemUIDecorator {
-		/** not working */
-		return object : NevoDecoratorService.SystemUIDecorator(this.prefKey), HookSupport {
-			override fun hook(loadPackageParam: XC_LoadPackage.LoadPackageParam) {
-				val remotable = XposedHelpers.findClass("android.view.RemotableViewMethod", loadPackageParam.classLoader)
-				val target = XposedHelpers.findMethodExact(View::class.java, "setOutlineAmbientShadowColor", Int::class.java)
-				val isAnnotationPresent = XposedHelpers.findMethodBestMatch(Method::class.java, "isAnnotationPresent", Class::class.java)
-				XposedBridge.hookMethod(isAnnotationPresent, object : XC_MethodHook() {
-					override fun beforeHookedMethod(param: MethodHookParam) {
-						if (param.thisObject !is Method) return
-						if (param.thisObject != target) return
-						val annotation = param.args[0] as? Class<*>
-						if (annotation != remotable) return
-						param.setResult(true)
-					}
-				})
-				val getAnnotation = XposedHelpers.findMethodBestMatch(Method::class.java, "getAnnotation", Class::class.java)
-				XposedBridge.hookMethod(getAnnotation, object : XC_MethodHook() {
-					override fun beforeHookedMethod(param: MethodHookParam) {
-						if (param.thisObject !is Method) return
-						if (param.thisObject != target) return
-						val annotation = param.args[0] as? Class<*>
-						if (annotation != remotable) return
-						param.setResult(XposedHelpers.newInstance(remotable))
-					}
-				})
-			}
+    override fun createSystemUIDecorator(): NevoDecoratorService.SystemUIDecorator {
+        // No hooks into java.lang.reflect.Method: the views below use only public RemoteViews operations.
+        return object : NevoDecoratorService.SystemUIDecorator(this.prefKey) {
+            override fun onNotificationPosted(sbn: StatusBarNotification): Decorating {
+                if (Build.VERSION.SDK_INT < 28) return Decorating.Unprocessed
+                return try {
+                    decorate(sbn)
+                } catch (failure: Throwable) {
+                    // SystemUI must keep delivering the original notification if any optional step fails.
+                    Log.w(TAG, "Media enhancement skipped: " + failure.javaClass.simpleName)
+                    Decorating.Unprocessed
+                }
+            }
 
-			override fun onNotificationPosted(sbn:StatusBarNotification):Decorating {
-				val n = sbn.getNotification()
-				if (!isMediaNotification(n)) {
-					// Log.d(TAG, "not media notification");
-					return Decorating.Unprocessed
-				}
-				val extras = n.extras
-				val title = extras.getCharSequence(Notification.EXTRA_TITLE, null)
-				val text = extras.getCharSequence(Notification.EXTRA_TEXT, null)
-				val backgroundColor:Int
-				val textColor:Int
-				if (n.getLargeIcon() != null) {
-					val bitmap = getLargeIcon(n)
-					val colors = ColorUtil.getColor(bitmap)
-					backgroundColor = colors[0]
-					textColor = colors[1]
-				} else {
-					backgroundColor = Color.BLACK
-					textColor = Color.WHITE
-				}
-				val packageName = sbn.getPackageName()
-				val context = getPackageContext()
-				val pm = context.getPackageManager()
-				var appLabel:String
-				try {
-					appLabel = pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
-				} catch (ex:PackageManager.NameNotFoundException) {
-					appLabel = "??"
-				}
-				val appLabel0 = appLabel
-				val typedArray = context.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
-				val selectableItemBackground = typedArray.getResourceId(0, 0)
-				typedArray.recycle()
-				val bindRemoteViews = { remoteViews: RemoteViews ->
-						remoteViews.setTextViewText(R.id.appName, appLabel0)
-						if (title != null)
-							remoteViews.setTextViewText(R.id.title, title)
-						if (text != null)
-							remoteViews.setTextViewText(R.id.subtitle, text)
-						remoteViews.setImageViewIcon(R.id.smallIcon, n.getSmallIcon())
-						remoteViews.setTextColor(R.id.appName, textColor)
-						remoteViews.setTextColor(R.id.title, textColor)
-						remoteViews.setTextColor(R.id.subtitle, textColor)
-						remoteViews.setImageViewIcon(R.id.largeIcon, n.getLargeIcon())
-						remoteViews.setInt(R.id.smallIcon, "setColorFilter", textColor)
-						remoteViews.setInt(R.id.foregroundImage, "setColorFilter", backgroundColor)
-						remoteViews.setInt(R.id.background, "setBackgroundColor", backgroundColor)
-						// remoteViews.setInt(R.id.title, "setOutlineAmbientShadowColor", Color.RED)
-						// remoteViews.setInt(R.id.subtitle, "setOutlineAmbientShadowColor", Color.RED)
-					}
-				@Suppress("DEPRECATION")
-				try {
-					val target = context.createPackageContext(packageName, Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY)
-					val bindAction = { remoteViews: RemoteViews, id: Int, action: Action ->
-							// Log.d(TAG, id + " " + action.getIcon() + " " + n.getSmallIcon());
-							remoteViews.setViewVisibility(id, View.VISIBLE)
-							// remoteViews.setImageViewBitmap(id, BitmapFactory.decodeResource(context.getResources(),action.getIcon().getResId()));
-							remoteViews.setImageViewIcon(id, Icon.createWithResource(target, action.getIcon().getResId()))
-							remoteViews.setOnClickPendingIntent(id, action.actionIntent)
-							remoteViews.setInt(id, "setColorFilter", textColor)
-							remoteViews.setInt(id, "setBackgroundResource", selectableItemBackground) }
-					if (NevoDecoratorService.LocalDecorator.overridedContentView(n) == null) {
-						n.contentView = NevoDecoratorService.LocalDecorator.overrideContentView(n, RemoteViews(BuildConfig.APPLICATION_ID, R.layout.media_notifition_layout))
-					}
-					bindRemoteViews(n.contentView)
-					val compacts = n.extras.getIntArray(Notification.EXTRA_COMPACT_ACTIONS)
-					if (n.actions != null && compacts != null) {
-						// Log.d(TAG, "" + n.actions.size)
-						if (n.actions.size > 0)
-							bindAction(n.contentView, R.id.ic_0, n.actions[compacts[0]])
-						if (n.actions.size > 1)
-							bindAction(n.contentView, R.id.ic_1, n.actions[compacts[1]])
-						if (n.actions.size > 2)
-							bindAction(n.contentView, R.id.ic_2, n.actions[compacts[2]])
-					} else {
-						Log.d(TAG, "no action")
-					}
-					if (NevoDecoratorService.LocalDecorator.overridedBigContentView(n) == null) {
-						n.bigContentView = NevoDecoratorService.LocalDecorator.overrideBigContentView(n, RemoteViews(BuildConfig.APPLICATION_ID, R.layout.media_notifition_layout_big))
-					}
-					bindRemoteViews(n.bigContentView)
-					if (n.actions != null) {
-						// Log.d(TAG, "" + n.actions.size)
-						if (n.actions.size > 0)
-							bindAction(n.bigContentView, R.id.ic_0, n.actions[0])
-						if (n.actions.size > 1)
-							bindAction(n.bigContentView, R.id.ic_1, n.actions[1])
-						if (n.actions.size > 2)
-							bindAction(n.bigContentView, R.id.ic_2, n.actions[2])
-						if (n.actions.size > 3)
-							bindAction(n.bigContentView, R.id.ic_3, n.actions[3])
-						if (n.actions.size > 4)
-							bindAction(n.bigContentView, R.id.ic_4, n.actions[4])
-					}
-					else
-					{
-						Log.d(TAG, "no action")
-					}
-				} catch (ex:PackageManager.NameNotFoundException) {
-					Log.d(TAG, "package " + packageName + "not found")
-				}
-				// Log.d(TAG, "notification " + n);
-				return Decorating.Processed
-			}
-		}
-	}
-	companion object {
-		private val TAG = "MediaDecorator"
-		private fun getLargeIcon(notification:Notification): Bitmap? {
-			val icon = notification.getLargeIcon()
-			return icon?.let { XposedHelpers.callMethod(notification.getLargeIcon(), "getBitmap") as? Bitmap }
-		}
-		private fun isMediaNotification(notification:Notification): Boolean {
-			if (notification.extras.containsKey(Notification.EXTRA_MEDIA_SESSION)) {
-				return true
-			} else {
-				return NevoDecoratorService.TEMPLATE_MEDIA.equals(notification.extras.getString(Notification.EXTRA_TEMPLATE))
-			}
-		}
-	}
+            private fun decorate(sbn: StatusBarNotification): Decorating {
+                val original = sbn.notification ?: return Decorating.Unprocessed
+                val originalExtras = original.extras ?: return Decorating.Unprocessed
+                if (!originalExtras.containsKey(Notification.EXTRA_MEDIA_SESSION)
+                    && originalExtras.getString(Notification.EXTRA_TEMPLATE) != TEMPLATE_MEDIA) {
+                    return Decorating.Unprocessed
+                }
+                val smallIcon = original.smallIcon ?: return Decorating.Unprocessed
+                val largeIcon = original.getLargeIcon() ?: return Decorating.Unprocessed
+                // Never resolve module R IDs through another package's Resources fallback.
+                val context = getPackageContext(BuildConfig.APPLICATION_ID) ?: return Decorating.Unprocessed
+                if (context.resources.getResourcePackageName(R.layout.media_notifition_layout) != BuildConfig.APPLICATION_ID) {
+                    return Decorating.Unprocessed
+                }
+                val colors = paletteForIcon(largeIcon, context) ?: return Decorating.Unprocessed
+                val backgroundColor = colors[0]
+                val textColor = colors[1]
+                val pm = context.packageManager
+                val appLabel = pm.getApplicationLabel(pm.getApplicationInfo(sbn.packageName, 0))
+                val styled = context.obtainStyledAttributes(intArrayOf(android.R.attr.selectableItemBackground))
+                val selectableBackground = try { styled.getResourceId(0, 0) } finally { styled.recycle() }
+
+                // Fresh RemoteViews on each event prevent accumulating stale reflection actions.
+                val compact = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.media_notifition_layout)
+                val expanded = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.media_notifition_layout_big)
+                fun bindBase(view: RemoteViews) {
+                    view.setTextViewText(R.id.appName, appLabel)
+                    view.setTextViewText(R.id.title, originalExtras.getCharSequence(Notification.EXTRA_TITLE))
+                    view.setTextViewText(R.id.subtitle, originalExtras.getCharSequence(Notification.EXTRA_TEXT))
+                    view.setImageViewIcon(R.id.smallIcon, smallIcon)
+                    view.setImageViewIcon(R.id.largeIcon, largeIcon)
+                    for (id in intArrayOf(R.id.appName, R.id.title, R.id.subtitle)) view.setTextColor(id, textColor)
+                    view.setInt(R.id.smallIcon, "setColorFilter", textColor)
+                    view.setInt(R.id.foregroundImage, "setColorFilter", backgroundColor)
+                    view.setInt(R.id.background, "setBackgroundColor", backgroundColor)
+                }
+                fun bindAction(view: RemoteViews, id: Int, action: Action?) {
+                    view.setViewVisibility(id, View.GONE)
+                    val icon = action?.getIcon() ?: return
+                    val intent = action.actionIntent ?: return
+                    // Preserve the Icon's actual kind/package instead of assuming every icon is a resource ID.
+                    view.setImageViewIcon(id, icon)
+                    view.setOnClickPendingIntent(id, intent)
+                    view.setContentDescription(id, action.title)
+                    view.setInt(id, "setColorFilter", textColor)
+                    if (selectableBackground != 0) view.setInt(id, "setBackgroundResource", selectableBackground)
+                    view.setViewVisibility(id, View.VISIBLE)
+                }
+                bindBase(compact)
+                bindBase(expanded)
+                val actions = original.actions ?: emptyArray()
+                val compactIndices = originalExtras.getIntArray(Notification.EXTRA_COMPACT_ACTIONS) ?: intArrayOf()
+                for ((position, id) in intArrayOf(R.id.ic_0, R.id.ic_1, R.id.ic_2).withIndex()) {
+                    val index = compactIndices.getOrNull(position)
+                    bindAction(compact, id, index?.let { actions.getOrNull(it) })
+                }
+                for ((position, id) in intArrayOf(R.id.ic_0, R.id.ic_1, R.id.ic_2, R.id.ic_3, R.id.ic_4).withIndex()) {
+                    bindAction(expanded, id, actions.getOrNull(position))
+                }
+                // Commit only after both complete view trees were prepared successfully.
+                val updated = original.clone()
+                updated.extras = originalExtras.deepCopy()
+                updated.contentView = NevoDecoratorService.LocalDecorator.overrideContentView(updated, compact)
+                updated.bigContentView = NevoDecoratorService.LocalDecorator.overrideBigContentView(updated, expanded)
+                NevoDecoratorService.SystemUIDecorator.setNotification(sbn, updated)
+                return Decorating.Processed
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "MediaDecorator"
+
+        private fun paletteForIcon(icon: Icon, context: android.content.Context): IntArray? {
+            // Bounded software rendering also handles vectors and avoids Palette reading a hardware bitmap.
+            val drawable = icon.loadDrawable(context) ?: return null
+            val sample = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888)
+            return try {
+                drawable.setBounds(0, 0, sample.width, sample.height)
+                drawable.draw(Canvas(sample))
+                ColorUtil.getColor(sample)
+            } finally {
+                sample.recycle()
+            }
+        }
+    }
 }
