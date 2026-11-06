@@ -1,0 +1,40 @@
+name: Publish tested APK to Releases
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/publish-test-release.yml
+      - scripts/publish_test_release.py
+      - downloads/**
+      - docs/UPDATE-2.0.59.md
+
+permissions: {}
+
+concurrency:
+  group: release-v2.0.59-beta
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'helenlawrence2104-luo/NevolutionXposed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Read this exact public commit
+        env:
+          SOURCE_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git init source
+          git -C source remote add origin "https://github.com/${SOURCE_REPO}.git"
+          git -C source fetch --depth=1 origin "$SOURCE_SHA"
+          git -C source checkout --detach FETCH_HEAD
+      - name: Verify tested APK and publish prerelease assets
+        working-directory: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/publish_test_release.py
